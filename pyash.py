@@ -3,9 +3,10 @@
 from jinja2 import Template
 from chut import console_script
 from decimal import Decimal
+from pprint import pprint
 import datetime
 
-DATE_FORMAT = '%Y/%m/%d'
+DATE_FMT = '%Y/%m/%d'
 
 table = Template('''
 {%- for label, amount in values %}
@@ -49,9 +50,11 @@ class Move(dict):
     {{ m.comment or '' }}
 ''')
 
-    def __init__(self, line):
+    def __init__(self, m, i, line):
+        self.index = m
+        self.line_number = i
         date_str, amount_str, kind, category, status = line.strip().split(' ')
-        date = datetime.datetime.strptime(date_str, DATE_FORMAT)
+        date = datetime.datetime.strptime(date_str, DATE_FMT)
         amount = Decimal(amount_str.rstrip(u'\u20ac'))
         self.update({
             'date': date,
@@ -62,6 +65,9 @@ class Move(dict):
             'description': None,
             'comment': '',
         })
+
+    def __getattr__(self, attr):
+        return self[attr]
 
     def add(self, line):
         if line.strip():
@@ -75,8 +81,8 @@ class Move(dict):
 
     def __str__(self):
         m = dict(self.copy())
-        m['date'] = self['date'].strftime(DATE_FORMAT)
-        return self.template.render(m=m).encode('utf8').lstrip()
+        m['date'] = self['date'].strftime(DATE_FMT)
+        return self.template.render(m=m).encode('utf8').strip() + '\n\n'
 
 
 class MovesFile:
@@ -84,11 +90,18 @@ class MovesFile:
     def __init__(self, args):
         self.args = args
         self.file = open(args['-i'], 'r')
-        self.start_date = datetime.datetime.strptime(args['-s'], DATE_FORMAT)
+        if '-s' in args:
+            self.start_date = datetime.datetime.strptime(args['-s'], DATE_FMT)
+        else:
+            self.start_date = datetime.datetime(1900, 1, 1)
+
+        if '-e' not in args:
+            args['-e'] = 'Now'
         if args['-e'] == 'Now':
             self.end_date = datetime.datetime.now()
         else:
-            self.end_date = datetime.datetime.strptime(args['-e'], DATE_FORMAT)
+            self.end_date = datetime.datetime.strptime(args['-e'], DATE_FMT)
+
         self.moves = sorted(self.parse())
         self.balances = {
             'in': Balance(reverse=True),
@@ -107,9 +120,11 @@ class MovesFile:
                 balance[category] = move['amount']
 
     def title(self):
+        start_date = self.moves[0]['date']
+        end_date = self.moves[-1]['date']
         title = 'Période du %s au %s\n' % (
-            self.start_date.strftime(DATE_FORMAT),
-            self.end_date.strftime(DATE_FORMAT)
+            start_date.strftime(DATE_FMT),
+            end_date.strftime(DATE_FMT)
         )
         sep = '=' * len(title)
         sep += '\n'
@@ -126,36 +141,53 @@ class MovesFile:
         return render_table(values=values)
 
     def iterator(self):
+        if self.args.get('--period'):
+            periode = '-- ' + self.args['--period']
+        else:
+            periode = None
+        i = 0
         with open(self.args['-i']) as fd:
             for line in fd:
-                yield line.decode('utf8')
+                i += 1
+                line = line.decode('utf8')
+                if periode and periode is not True:
+                    if line.startswith(periode):
+                        periode = True
+                    continue
+                if periode is True and line.startswith('!'):
+                    raise StopIteration()
+                if line[0] in '$!#-':
+                    continue
+                yield i, line
 
     def parse(self):
         move = None
-        line = True
         fd = self.iterator()
-        line = fd.next()
+        i, line = fd.next()
+        m = 0
         while True:
             if line[:4].isdigit():
-                move = Move(line)
-                line = fd.next()
+                m += 1
+                move = Move(m, i, line)
+                i, line = fd.next()
                 while not line[:4].isdigit():
                     move.add(line)
                     try:
-                        line = fd.next()
+                        i, line = fd.next()
                     except StopIteration:
                         break
                 if self.filter(move):
                     yield move
             else:
-                line = fd.next()
+                i, line = fd.next()
 
     def filter(self, move):
-        if self.args['-g'] and self.args['-g'] not in str(move).lower():
+        g = self.args.get('-g', '')
+        if g and g not in str(move).lower():
             return
-        if self.args['-p'] and not move['status'].upper() == 'P':
+        if self.args.get('-p') and not move['status'].upper() == 'P':
             return
-        if self.args['-x'] and not move['status'].upper() == 'X':
+        if self.args.get('-x') and not move['status'].upper() == 'X':
             return
         if self.start_date <= move['date'] <= self.end_date:
             return True
@@ -166,15 +198,38 @@ def pyash(args):
     """
     Usage: %prog [options] balance
            %prog [options] show
+           %prog validate
+           %prog json
 
     -i FILENAME     Input file [Default: afpy.ash]
     -s DATE         Start date [Default: 2000/01/01]
-    -e DATE         Start date [Default: Now]
-    -p              Show pendings
-    -x              Show checked
+    -e DATE         End date [Default: Now]
+    -p              Pendings
+    -x              Checked
     -g PATTERN      Grep
+    --period PERIOD Only show period
     """
+    if args['validate']:
+        out = ''
+        moves = MovesFile({'-i': args['-i']})
+        for m in moves.moves:
+            out += str(m)
+        return
+    if args['json']:
+        out = {}
+        moves = MovesFile({'-i': args['-i']})
+        for m in moves.moves:
+            for k, v in m.items():
+                if k not in ('amount', 'date', 'description', 'comment'):
+                    s = out.setdefault(k, set())
+                    s.add(v)
+        for k, v in out.items():
+            out[k] = sorted(v)
+        pprint(out)
+        return
     moves = MovesFile(args)
+    if not moves.moves:
+        return
     if args['balance']:
         print(moves.title())
         print(moves.balance())
@@ -182,7 +237,7 @@ def pyash(args):
         print(moves.balances['out'])
     elif args['show']:
         for m in moves.moves:
-            print(m)
+            print('{0}\n    line: {1}\n'.format(str(m).strip(), m.line_number))
 
 if __name__ == '__main__':
     pyash()
