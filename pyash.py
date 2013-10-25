@@ -201,7 +201,7 @@ def pyash(args):
            %prog validate
            %prog json
 
-    -i FILENAME     Input file [Default: afpy.ash]
+    -i FILENAME     Input file [Default: afpy_gestion/compta/afpy.ash]
     -s DATE         Start date [Default: 2000/01/01]
     -e DATE         End date [Default: Now]
     -p              Pendings
