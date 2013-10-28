@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import csv
-import pprint
 from pyash import Move
 
 mapping = {
@@ -16,6 +15,7 @@ def clean(v):
 
 
 def import_csv(filename):
+    lines = []
     headers = []
     with open(filename, 'r') as fd:
         for line in csv.reader(fd):
@@ -35,9 +35,12 @@ def import_csv(filename):
                 line['category'] = 'Other'
                 line['status'] = 'P'
             line['description'] = line['nom']
+            line['commission'] = line['commission'].strip('-')
             comment = (u'%(titre_de_lobjet)s\n'
-                       u'    Commission: %(avant_commission)s%(commission)s\n'
-                       u'    Transaction: %(id_transaction)s\n'
+                       u'    Commission: %(avant_commission)s-%(commission)s\n'
+                       u'    Transaction Paypal: %(id_transaction)s\n'
                        ) % line
             line['comment'] = comment.strip()
-            print(Move.template.render(m=line).encode('utf8'))
+            lines.append(((int(d) for i in d), line))
+    for d, line in reversed(lines):
+        print(Move.template.render(m=line).encode('utf8'))
