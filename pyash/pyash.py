@@ -200,6 +200,7 @@ def pyash(args):
            %prog [options] show
            %prog validate
            %prog json
+           %prog [options] paypal <csv>
 
     -i FILENAME     Input file [Default: afpy_gestion/compta/afpy.ash]
     -s DATE         Start date [Default: 2000/01/01]
@@ -209,6 +210,9 @@ def pyash(args):
     -g PATTERN      Grep
     --period PERIOD Only show period
     """
+    if args['paypal']:
+        from . import paypal
+        paypal.import_csv(args['<csv>'])
     if args['validate']:
         out = ''
         moves = MovesFile({'-i': args['-i']})
