@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import csv
 from datetime import datetime
 
@@ -8,10 +5,10 @@ from chut import console_script
 from jinja2 import Template
 
 
-TEMPLATE = u'''
+TEMPLATE = '''
 {{ r.date }} {{ r.amount }}€ {{r.kind}} {{ r.type }}{{ r.status }}
     {{ r.description }}
-    {{ r.comment or '' }}
+    {{ r.comment or '' }}
 
 '''
 
@@ -24,9 +21,9 @@ types = {
     'Partenaire:PyConFR07': 'PyCon07',
     'SCBC': 'VariousEvents',
     'Fraisbanca': 'FraisBanque',
-    u'Hébergement': 'Hosting',
-    'Fraish': u'Hebergement',
-    'Fraisdeser': u'FraisDivers',
+    'Hébergement': 'Hosting',
+    'Fraish': 'Hebergement',
+    'Fraisdeser': 'FraisDivers',
     'VariousEvents': 'SponsoringEvents',
     'SponsoringEvenements': 'SponsoringEvents',
 }
@@ -46,7 +43,7 @@ def transform_item(record):
         if record['comment'] is None:
             record['comment'] = record['info']
         else:
-            record['comment'] += u' ; ' + record['info']
+            record['comment'] += ' ; ' + record['info']
 
     if record['amount'] == 0:
         record['type'] = 'Cotisation'
@@ -54,9 +51,9 @@ def transform_item(record):
 
     st = record['status']
     if st.startswith('Pending'):
-        record['status'] = u' P'
+        record['status'] = ' P'
     else:
-        record['status'] = u' X'
+        record['status'] = ' X'
 
     t = record['type']
     for k, v in types.items():
@@ -131,6 +128,7 @@ def csv2pyash(args):
     records = parse_csv(args['<csv>'])
     for record in records:
         print_record(record)
+
 
 if __name__ == '__main__':
     csv2pyash()

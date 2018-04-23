@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 import csv
+
 from pyash import Move
 
 mapping = {
-    'n\xb0_de_transaction': 'id_transaction',
+    'n°_de_transaction': 'id_transaction',
 }
 
 
