@@ -105,6 +105,8 @@ class MovesFile:
         else:
             self.end_date = datetime.datetime.strptime(args['-e'], DATE_FMT)
 
+        self.accounts = {}
+        self.kinds = {}
         self.moves = sorted(self.parse())
         self.balances = {
             'in': Balance(reverse=True),
@@ -121,6 +123,14 @@ class MovesFile:
                 balance[category] += move['amount']
             else:
                 balance[category] = move['amount']
+
+            if self.accounts:
+                if move['kind'] in self.kinds:
+                    account = self.kinds[move['kind']]
+                    self.accounts[account] += move['amount']
+                else:
+                    raise TypeError(
+                        'Le type {} est inconnu'.format(move['kind']))
 
     def title(self):
         start_date = self.moves[0]['date']
@@ -168,7 +178,18 @@ class MovesFile:
         i, line = next(fd)
         m = 0
         while True:
-            if line[:4].isdigit():
+            if line.startswith('++ '):
+                account, kinds, amount = line.split()[1:]
+                kinds = kinds[1:-2].split(',')
+                amount = Decimal(amount)
+                self.accounts[account] = amount
+                for kind in kinds:
+                    self.kinds[kind] = account
+                try:
+                    i, line = next(fd)
+                except StopIteration:
+                    return
+            elif line[:4].isdigit():
                 m += 1
                 move = Move(m, i, line)
                 try:
@@ -247,6 +268,11 @@ def pyash(args):
         print(moves.balance())
         print(moves.balances['in'])
         print(moves.balances['out'])
+        if moves.accounts:
+            print('Soldes\n======')
+            print(render_table(
+                list(moves.accounts.items()) +
+                [('Total', sum(moves.accounts.values()))]))
     elif args['show']:
         for m in moves.moves:
             print('{0}\n    line: {1}\n'.format(str(m).strip(), m.line_number))
