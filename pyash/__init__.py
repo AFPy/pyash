@@ -26,7 +26,7 @@ class Balance(dict):
     def __init__(self, reverse=False):
         self.reverse = reverse
         self.coef = reverse and 1 or -1
-        self.title = reverse and 'Recettes' or 'Depenses'
+        self.title = reverse and 'Recettes' or 'Dépenses'
 
     def __iter__(self):
         items = sorted([(v * self.coef, k) for k, v in self.items()],
