@@ -192,10 +192,6 @@ class MovesFile:
             elif line[:4].isdigit():
                 m += 1
                 move = Move(m, i, line)
-                try:
-                    i, line = next(fd)
-                except StopIteration:
-                    return
                 while not line[:4].isdigit():
                     move.add(line)
                     try:
@@ -204,6 +200,10 @@ class MovesFile:
                         break
                 if self.filter(move):
                     yield move
+                try:
+                    i, line = next(fd)
+                except StopIteration:
+                    return
             else:
                 try:
                     i, line = next(fd)
